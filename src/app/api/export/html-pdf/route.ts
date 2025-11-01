@@ -81,10 +81,12 @@ function escapeHtml(input: string): string {
 async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
   // puppeteer-core + @sparticuz/chromium (Vercel uyumlu)
   const puppeteer = await import('puppeteer-core')
+  chromium.setHeadlessMode = true
+  chromium.setGraphicsMode = false
   const executablePath = await chromium.executablePath()
   const browser = await puppeteer.launch({
     executablePath: executablePath || undefined,
-    args: chromium.args,
+    args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
     headless: chromium.headless,
     defaultViewport: chromium.defaultViewport,
   } as any)
