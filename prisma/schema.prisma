@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Upload {
+  id          String   @id @default(uuid())
+  filename    String
+  fileHash    String   @unique
+  rowCount    Int
+  createdAt   DateTime @default(now())
+  createdById String?
+  columnsOrder Json?
+
+  rows        UploadRow[]
+
+  @@map("uploads")
+}
+
+model UploadRow {
+  id        String   @id @default(uuid())
+  uploadId  String
+  rowIndex  Int
+  columns   Json
+  raw       Json
+  createdAt DateTime @default(now())
+
+  upload Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@unique([uploadId, rowIndex])
+  @@map("upload_rows")
+}
