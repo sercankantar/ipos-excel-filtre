@@ -31,7 +31,7 @@ async function renderTablePdf(headers: string[], rows: string[][]): Promise<Uint
   const pdfDoc = await PDFDocument.create()
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const page = pdfDoc.addPage([595.28, 841.89]) // A4 portrait in points
+  let page = pdfDoc.addPage([595.28, 841.89]) // A4 portrait in points
   const margin = { top: 56, right: 34, bottom: 56, left: 34 }
   const usableWidth = page.getWidth() - margin.left - margin.right
   const usableHeight = page.getHeight() - margin.top - margin.bottom
@@ -44,14 +44,14 @@ async function renderTablePdf(headers: string[], rows: string[][]): Promise<Uint
   let cursorY = page.getHeight() - margin.top
 
   // Title
-  page.drawText('Filtrelenen Kayıtlar', { x: margin.left, y: cursorY, size: 14, font: fontBold })
+  page.drawText(toAnsi('Filtrelenen Kayıtlar'), { x: margin.left, y: cursorY, size: 14, font: fontBold })
   cursorY -= 24
 
   // Header background
   const headerY = cursorY - headerHeight + 4
   for (let i = 0; i < colCount; i++) {
     page.drawRectangle({ x: margin.left + i * colWidth, y: headerY, width: colWidth, height: headerHeight, color: undefined, borderColor: undefined, borderWidth: 0 })
-    const text = truncate(headers[i] ?? '', Math.floor(colWidth / 6))
+    const text = truncate(toAnsi(headers[i] ?? ''), Math.floor(colWidth / 6))
     page.drawText(text, { x: margin.left + i * colWidth + 2, y: cursorY - 14, size: 10, font: fontBold })
   }
   cursorY -= headerHeight
@@ -61,12 +61,13 @@ async function renderTablePdf(headers: string[], rows: string[][]): Promise<Uint
     if (cursorY - rowHeight < margin.bottom) {
       // new page
       const p = pdfDoc.addPage([595.28, 841.89])
-      p.drawText('Devam', { x: margin.left, y: p.getHeight() - margin.top, size: 12, font: fontBold })
-      cursorY = p.getHeight() - margin.top - 24
+      page = p
+      page.drawText(toAnsi('Devam'), { x: margin.left, y: page.getHeight() - margin.top, size: 12, font: fontBold })
+      cursorY = page.getHeight() - margin.top - 24
     }
     for (let i = 0; i < colCount; i++) {
       const val = r[i] == null ? '' : String(r[i])
-      const txt = truncate(val, Math.floor(colWidth / 6))
+      const txt = truncate(toAnsi(val), Math.floor(colWidth / 6))
       page.drawText(txt, { x: margin.left + i * colWidth + 2, y: cursorY - 12, size: 10, font })
     }
     cursorY -= rowHeight
@@ -80,6 +81,17 @@ function truncate(s: string, max: number) {
   if (s.length <= max) return s
   if (max <= 3) return s.slice(0, max)
   return s.slice(0, max - 3) + '...'
+}
+
+function toAnsi(input: string): string {
+  // PDF StandardFonts (WinAnsi) Türkçe bazı karakterleri desteklemez; yakın ASCII ile değiştir
+  return input
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U')
 }
 
 
