@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     }
 
     const out = await pdfDoc.save()
-    return new NextResponse(Buffer.from(out), {
+    return new Response(out, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="fatura.pdf"',

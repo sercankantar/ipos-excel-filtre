@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 </html>`
 
     const pdf = await renderHtmlToPdf(html)
-    return new NextResponse(pdf, {
+    return new Response(pdf, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="filtre-sonucu.pdf"',
@@ -75,7 +75,7 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#039;')
 }
 
-async function renderHtmlToPdf(html: string): Promise<Buffer> {
+async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
   // puppeteer runtime import (dinamik)
   const puppeteer = await import('puppeteer')
   const browser = await puppeteer.launch({
@@ -90,7 +90,7 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
       printBackground: true,
       margin: { top: '20mm', right: '12mm', bottom: '20mm', left: '12mm' },
     })
-    return Buffer.from(buffer)
+    return new Uint8Array(buffer)
   } finally {
     await browser.close()
   }
