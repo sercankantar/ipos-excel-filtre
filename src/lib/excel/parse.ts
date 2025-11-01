@@ -54,7 +54,7 @@ export function normalizeKey(key: string): string {
   return key
     .toLowerCase()
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[-_.]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
