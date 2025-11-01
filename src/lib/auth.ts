@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
-
-const prisma = new PrismaClient()
 
 export async function authenticateUser(username: string, password: string) {
   try {
@@ -26,8 +24,6 @@ export async function authenticateUser(username: string, password: string) {
   } catch (error) {
     console.error('Authentication error:', error)
     return null
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -52,8 +48,6 @@ export async function createAdminUser() {
     }
   } catch (error) {
     console.error('Error creating admin user:', error)
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
