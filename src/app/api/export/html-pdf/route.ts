@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,7 +54,8 @@ export async function POST(req: NextRequest) {
 </html>`
 
     const pdf = await renderHtmlToPdf(html)
-    return new Response(pdf, {
+    const ab = pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength)
+    return new Response(ab as ArrayBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="filtre-sonucu.pdf"',
