@@ -3,6 +3,9 @@ import { PDFDocument, StandardFonts } from 'pdf-lib'
 import fs from 'fs/promises'
 import path from 'path'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 type Mapping = Record<string, { page: number; x: number; y: number; size?: number }>
 
 function normalizeKey(k: string) {
