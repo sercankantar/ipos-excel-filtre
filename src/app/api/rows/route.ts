@@ -25,11 +25,15 @@ export async function GET(req: NextRequest) {
     let columns: string[] = []
     if (uploadId) {
       const up = await prisma.upload.findUnique({ where: { id: uploadId }, select: { columnsOrder: true } })
-      if (up?.columnsOrder) columns = up.columnsOrder.filter((h: any) => !!h && !/^empty(\s|\d)*$/i.test(String(h).trim()))
+      if (up?.columnsOrder && Array.isArray(up.columnsOrder)) {
+        columns = (up.columnsOrder as any[]).filter((h) => typeof h === 'string' && !!h && !/^empty(\s|\d)*$/i.test(h.trim()))
+      }
     }
     if (!columns.length) {
       const last = await prisma.upload.findFirst({ orderBy: { createdAt: 'desc' }, select: { columnsOrder: true } })
-      if (last?.columnsOrder) columns = last.columnsOrder.filter((h: any) => !!h && !/^empty(\s|\d)*$/i.test(String(h).trim()))
+      if (last?.columnsOrder && Array.isArray(last.columnsOrder)) {
+        columns = (last.columnsOrder as any[]).filter((h) => typeof h === 'string' && !!h && !/^empty(\s|\d)*$/i.test(h.trim()))
+      }
     }
 
     if (!filters) {
@@ -54,7 +58,7 @@ export async function GET(req: NextRequest) {
     const from = filters.from ? new Date(filters.from) : undefined
     const to = filters.to ? new Date(filters.to) : undefined
 
-    const filtered = baseRows.filter(r => {
+    const filtered = baseRows.filter((r: any) => {
       // text terms includes (case-insensitive)
       for (const [k, v] of Object.entries(terms)) {
         if (!v) continue
