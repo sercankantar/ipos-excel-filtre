@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import chromium from '@sparticuz/chromium'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -78,11 +79,14 @@ function escapeHtml(input: string): string {
 }
 
 async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
-  // puppeteer runtime import (dinamik)
-  const puppeteer = await import('puppeteer')
+  // puppeteer-core + @sparticuz/chromium (Vercel uyumlu)
+  const puppeteer = await import('puppeteer-core')
+  const executablePath = await chromium.executablePath()
   const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    executablePath: executablePath || undefined,
+    args: chromium.args,
+    headless: chromium.headless,
+    defaultViewport: chromium.defaultViewport,
   } as any)
   try {
     const page = await browser.newPage()

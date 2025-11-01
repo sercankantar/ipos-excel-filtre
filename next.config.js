@@ -6,7 +6,8 @@ const nextConfig = {
     outputFileTracingIncludes: {
       '/**/*': [
         './node_modules/.prisma/client',
-        './node_modules/@prisma/client'
+        './node_modules/@prisma/client',
+        './node_modules/@sparticuz/chromium'
       ],
     },
   },
