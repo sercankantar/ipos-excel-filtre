@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import { parseExcel, hashBuffer, normalizeRowKeys } from '@/lib/excel/parse'
 
 const prisma = new PrismaClient()
@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
     const upload = await prisma.upload.create({
       data: { filename: file.name, fileHash, rowCount: rows.length, columnsOrder },
     })
-    const mapped = normalizedRows.map((r, idx) => ({
+    const mapped: Prisma.UploadRowCreateManyInput[] = normalizedRows.map((r, idx) => ({
       uploadId: upload.id,
       rowIndex: idx,
-      columns: r,
-      raw: r
+      columns: r as unknown as Prisma.InputJsonValue,
+      raw: r as unknown as Prisma.InputJsonValue
     }))
     await prisma.uploadRow.createMany({ data: mapped })
     return NextResponse.json({ success: true, uploadId: upload.id })
