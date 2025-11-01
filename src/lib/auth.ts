@@ -3,8 +3,9 @@ import bcrypt from 'bcryptjs'
 
 export async function authenticateUser(username: string, password: string) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { username },
+    const normalizedUsername = String(username).trim()
+    const user = await prisma.user.findFirst({
+      where: { username: { equals: normalizedUsername, mode: 'insensitive' } },
     })
 
     if (!user) {
