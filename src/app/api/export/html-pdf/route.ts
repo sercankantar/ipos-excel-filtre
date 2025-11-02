@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import chrome from 'chrome-aws-lambda'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -77,14 +76,34 @@ function escapeHtml(input: string): string {
 }
 
 async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
+  const isProduction = process.env.NODE_ENV === 'production'
   const puppeteer = await import('puppeteer-core')
-  const executablePath = await chrome.executablePath
+  
+  let executablePath: string | undefined
+  let args: string[]
+  
+  if (isProduction) {
+    // Vercel production ortamında @sparticuz/chromium kullan
+    const chromium = await import('@sparticuz/chromium')
+    chromium.setHeadlessMode = true
+    chromium.setGraphicsMode = false
+    executablePath = await chromium.executablePath()
+    args = chromium.args
+  } else {
+    // Lokal geliştirme ortamında tam puppeteer kullan
+    const puppeteerFull = await import('puppeteer')
+    const path = await puppeteerFull.executablePath()
+    executablePath = path
+    args = ['--no-sandbox', '--disable-setuid-sandbox']
+  }
+  
   const browser = await puppeteer.launch({
-    executablePath: executablePath || undefined,
-    args: [...(chrome.args || []), '--no-sandbox', '--disable-setuid-sandbox'],
-    headless: 'new' as any,
-    defaultViewport: chrome.defaultViewport || undefined,
+    executablePath,
+    args,
+    headless: 'new',
+    defaultViewport: { width: 1920, height: 1080 },
   } as any)
+  
   try {
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'networkidle0' })

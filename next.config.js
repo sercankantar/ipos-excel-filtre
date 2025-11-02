@@ -7,7 +7,7 @@ const nextConfig = {
         '/**/*': [
           './node_modules/.prisma/client',
           './node_modules/@prisma/client',
-          './node_modules/chrome-aws-lambda'
+          './node_modules/@sparticuz/chromium'
         ],
       },
   },
