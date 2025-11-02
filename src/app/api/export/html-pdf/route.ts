@@ -76,12 +76,12 @@ function escapeHtml(input: string): string {
 }
 
 async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
-  const isProduction = process.env.NODE_ENV === 'production'
+  const isVercel = !!process.env.VERCEL
   
   let browser: any
   
-  if (isProduction) {
-    // Vercel production ortamında @sparticuz/chromium kullan
+  if (isVercel) {
+    // Vercel ortamında @sparticuz/chromium kullan
     const chromium = await import('@sparticuz/chromium')
     const puppeteer = await import('puppeteer-core')
     const executablePath = await chromium.default.executablePath()
