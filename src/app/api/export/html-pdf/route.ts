@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -11,8 +12,7 @@ export async function POST(req: NextRequest) {
     if (!headers.length || !rows.length) {
       return NextResponse.json({ message: 'Veri bulunamadı' }, { status: 400 })
     }
-    const html = buildHtml(req.nextUrl.origin, headers, rows)
-    const pdf = await renderHtmlToPdf(html)
+    const pdf = await renderTablePdf(headers, rows)
     const ab = pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength)
     return new Response(ab as ArrayBuffer, {
       headers: {
@@ -27,94 +27,176 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function buildHtml(origin: string, headers: string[], rows: string[][]): string {
-  const logoUrl = new URL('/logoipos.svg', origin).toString()
-  return `<!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Filtre Sonucu</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: #111827; }
-    .header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-    .logo { height: 36px; }
-    .title { font-size: 18px; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px 10px; font-size: 12px; text-align: left; vertical-align: top; }
-    thead th { background: #f3f4f6; font-weight: 600; }
-    tbody tr:nth-child(even) { background: #fafafa; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <img class="logo" src="${logoUrl}" alt="IPOS" />
-    <div class="title">Filtrelenen Kayıtlar</div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        ${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}
-      </tr>
-    </thead>
-    <tbody>
-      ${rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(String(c ?? ''))}</td>`).join('')}</tr>`).join('')}
-    </tbody>
-  </table>
-</body>
-</html>`
-}
+async function renderTablePdf(headers: string[], rows: string[][]): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create()
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  let page = pdfDoc.addPage([595.28, 841.89]) // A4 portrait in points
+  
+  const margin = { top: 60, right: 40, bottom: 40, left: 40 }
+  const rowHeight = 22
+  const headerHeight = 25
+  const tableLineWidth = 0.8
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
+  const colCount = headers.length
+  const usableWidth = page.getWidth() - margin.left - margin.right
+  const colWidth = usableWidth / Math.max(1, colCount)
 
-async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
-  const isVercel = !!process.env.VERCEL
+  let cursorY = page.getHeight() - margin.top
+
+  // Logo area (sol üstte)
+  page.drawText('IPOS', { x: margin.left, y: cursorY - 8, size: 18, font: fontBold })
+  page.drawText('Steel', { x: margin.left + 48, y: cursorY - 8, size: 18, font: fontBold })
+  page.drawText('CABLE TRAY & PROFILES', { x: margin.left, y: cursorY - 22, size: 8, font })
+
+  // Title (sağ üstte)
+  const titleWidth = fontBold.widthOfTextAtSize('Filtrelenen Kayitlar', 16)
+  page.drawText(toAscii('Filtrelenen Kayitlar'), { 
+    x: page.getWidth() - margin.right - titleWidth, 
+    y: cursorY - 8, 
+    size: 16, 
+    font: fontBold 
+  })
+  cursorY -= 50
+
+  // Table borders (outer rectangle)
+  const tableTop = cursorY
+  const tableBottom = cursorY - headerHeight - (rows.length * rowHeight)
   
-  let browser: any
+  // Top border
+  page.drawLine({ 
+    start: { x: margin.left, y: cursorY }, 
+    end: { x: margin.left + usableWidth, y: cursorY }, 
+    thickness: tableLineWidth 
+  })
   
-  if (isVercel) {
-    // Vercel ortamında @sparticuz/chromium kullan
-    const chromium = await import('@sparticuz/chromium')
-    const puppeteer = await import('puppeteer-core')
-    const executablePath = await chromium.default.executablePath()
-    browser = await puppeteer.default.launch({
-      executablePath,
-      args: chromium.default.args,
-      headless: chromium.default.headless,
-      defaultViewport: chromium.default.defaultViewport,
-    } as any)
-  } else {
-    // Lokal geliştirme ortamında tam puppeteer kullan
-    const puppeteer = await import('puppeteer')
-    const path = await puppeteer.default.executablePath()
-    browser = await puppeteer.default.launch({
-      executablePath: path,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      headless: 'new',
-      defaultViewport: { width: 1920, height: 1080 },
-    } as any)
-  }
+  // Bottom border
+  page.drawLine({ 
+    start: { x: margin.left, y: tableBottom }, 
+    end: { x: margin.left + usableWidth, y: tableBottom }, 
+    thickness: tableLineWidth 
+  })
   
-  try {
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'networkidle0' })
-    const buffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20mm', right: '12mm', bottom: '20mm', left: '12mm' },
+  // Left border
+  page.drawLine({ 
+    start: { x: margin.left, y: cursorY }, 
+    end: { x: margin.left, y: tableBottom }, 
+    thickness: tableLineWidth 
+  })
+  
+  // Right border
+  page.drawLine({ 
+    start: { x: margin.left + usableWidth, y: cursorY }, 
+    end: { x: margin.left + usableWidth, y: tableBottom }, 
+    thickness: tableLineWidth 
+  })
+
+  // Header row border
+  const headerBorderY = cursorY - headerHeight
+  page.drawLine({ 
+    start: { x: margin.left, y: headerBorderY }, 
+    end: { x: margin.left + usableWidth, y: headerBorderY }, 
+    thickness: tableLineWidth 
+  })
+
+  // Headers
+  for (let i = 0; i < colCount; i++) {
+    const x = margin.left + i * colWidth
+    // Vertical cell borders
+    if (i > 0) {
+      page.drawLine({ 
+        start: { x, y: cursorY }, 
+        end: { x, y: headerBorderY }, 
+        thickness: 0.6 
+      })
+    }
+    const text = truncate(toAscii(headers[i] ?? ''), Math.floor(colWidth / 7))
+    // Center-aligned header text
+    const textWidth = fontBold.widthOfTextAtSize(text, 10)
+    page.drawText(text, { 
+      x: x + (colWidth - textWidth) / 2, 
+      y: cursorY - headerHeight + 16, 
+      size: 10, 
+      font: fontBold 
     })
-    return new Uint8Array(buffer)
-  } finally {
-    await browser.close()
   }
+  cursorY -= headerHeight
+
+  // Rows
+  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+    const r = rows[rowIdx]
+    if (cursorY - rowHeight < margin.bottom) {
+      const p = pdfDoc.addPage([595.28, 841.89])
+      page = p
+      cursorY = p.getHeight() - margin.top
+    }
+    
+    const rowTop = cursorY
+    const rowBottom = cursorY - rowHeight
+    
+    // Horizontal row border
+    page.drawLine({ 
+      start: { x: margin.left, y: rowBottom }, 
+      end: { x: margin.left + usableWidth, y: rowBottom }, 
+      thickness: 0.6 
+    })
+    
+    for (let i = 0; i < colCount; i++) {
+      const x = margin.left + i * colWidth
+      // Vertical cell borders
+      if (i > 0) {
+        page.drawLine({ 
+          start: { x, y: rowTop }, 
+          end: { x, y: rowBottom }, 
+          thickness: 0.6 
+        })
+      }
+      const val = r[i] == null ? '' : String(r[i])
+      const txt = truncate(toAscii(val), Math.floor(colWidth / 7))
+      
+      // Smart alignment based on content
+      const alignment = getAlignment(val, i)
+      let textX = x + 4
+      if (alignment === 'right') {
+        const textWidth = font.widthOfTextAtSize(txt, 9)
+        textX = x + colWidth - textWidth - 4
+      } else if (alignment === 'center') {
+        const textWidth = font.widthOfTextAtSize(txt, 9)
+        textX = x + (colWidth - textWidth) / 2
+      }
+      
+      page.drawText(txt, { x: textX, y: cursorY - rowHeight + 14, size: 9, font })
+    }
+    cursorY -= rowHeight
+  }
+
+  const out = await pdfDoc.save()
+  return out
+}
+
+function getAlignment(value: string, colIndex: number): 'left' | 'center' | 'right' {
+  // Numeric değerler sağa
+  if (/^\d+([.,]\d+)?$/.test(value.trim())) return 'right'
+  // Başlık satırı veya özel durumlar
+  if (colIndex === 0) return 'left'
+  return 'left'
+}
+
+function truncate(s: string, max: number) {
+  if (s.length <= max) return s
+  if (max <= 3) return s.slice(0, max)
+  return s.slice(0, max - 3) + '...'
+}
+
+function toAscii(input: string): string {
+  // WinAnsi Türkçe karakterleri desteklemez; ASCII karşılıklar
+  return input
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U')
 }
 
 
