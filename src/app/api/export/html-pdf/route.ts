@@ -77,32 +77,33 @@ function escapeHtml(input: string): string {
 
 async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
   const isProduction = process.env.NODE_ENV === 'production'
-  const puppeteer = await import('puppeteer-core')
   
-  let executablePath: string | undefined
-  let args: string[]
+  let browser: any
   
   if (isProduction) {
     // Vercel production ortamında @sparticuz/chromium kullan
     const chromium = await import('@sparticuz/chromium')
-    chromium.setHeadlessMode = true
-    chromium.setGraphicsMode = false
-    executablePath = await chromium.executablePath()
-    args = chromium.args
+    const puppeteer = await import('puppeteer-core')
+    chromium.default.headlessMode = true
+    chromium.default.graphicsMode = false
+    const executablePath = await chromium.default.executablePath()
+    browser = await puppeteer.default.launch({
+      executablePath,
+      args: chromium.default.args,
+      headless: 'new',
+      defaultViewport: { width: 1920, height: 1080 },
+    } as any)
   } else {
     // Lokal geliştirme ortamında tam puppeteer kullan
-    const puppeteerFull = await import('puppeteer')
-    const path = await puppeteerFull.executablePath()
-    executablePath = path
-    args = ['--no-sandbox', '--disable-setuid-sandbox']
+    const puppeteer = await import('puppeteer')
+    const path = await puppeteer.default.executablePath()
+    browser = await puppeteer.default.launch({
+      executablePath: path,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: 'new',
+      defaultViewport: { width: 1920, height: 1080 },
+    } as any)
   }
-  
-  const browser = await puppeteer.launch({
-    executablePath,
-    args,
-    headless: 'new',
-    defaultViewport: { width: 1920, height: 1080 },
-  } as any)
   
   try {
     const page = await browser.newPage()
