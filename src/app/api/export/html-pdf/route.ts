@@ -84,14 +84,12 @@ async function renderHtmlToPdf(html: string): Promise<Uint8Array> {
     // Vercel production ortamında @sparticuz/chromium kullan
     const chromium = await import('@sparticuz/chromium')
     const puppeteer = await import('puppeteer-core')
-    chromium.default.headlessMode = true
-    chromium.default.graphicsMode = false
     const executablePath = await chromium.default.executablePath()
     browser = await puppeteer.default.launch({
       executablePath,
       args: chromium.default.args,
-      headless: 'new',
-      defaultViewport: { width: 1920, height: 1080 },
+      headless: chromium.default.headless,
+      defaultViewport: chromium.default.defaultViewport,
     } as any)
   } else {
     // Lokal geliştirme ortamında tam puppeteer kullan
